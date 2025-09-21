@@ -4,6 +4,7 @@ import connectDB from "./config/mongodb.js";
 import supabase from "./config/supabase.js";
 import mongoose from "mongoose";
 import routes from "./routes/index.js"; 
+import { swaggerUi, swaggerDocs } from "./swagger.js"; 
 
 dotenv.config();
 
@@ -38,7 +39,10 @@ app.get("/test-supabase", async (req, res) => {
   }
 });
 
-// 5️⃣ Mount API routes
+// 5️⃣ Mount Swagger Docs
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocs));
+
+// 6️⃣ Mount API routes
 app.use("/api", routes);
 
 const PORT = process.env.PORT || 5000;
