@@ -1,6 +1,6 @@
-const { Client, PrivateKey, AccountId, TransferTransaction } = require('@hashgraph/sdk');
+import { Client, PrivateKey, AccountId, TransferTransaction } from '@hashgraph/sdk';
 
-const transferHBAR = async (fromAccountId, toAccountId, amount) => {
+export const transferHBAR = async (fromAccountId, toAccountId, amount) => {
   const client = Client.forTestnet();
   client.setOperator(AccountId.fromString(process.env.HEDERA_OPERATOR_ID), PrivateKey.fromStringECDSA(process.env.HEDERA_OPERATOR_KEY));
 
@@ -12,5 +12,3 @@ const transferHBAR = async (fromAccountId, toAccountId, amount) => {
   const receipt = await txResponse.getReceipt(client);
   return receipt.transactionId.toString();
 };
-
-module.exports = { transferHBAR };

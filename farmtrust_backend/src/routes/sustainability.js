@@ -1,9 +1,9 @@
-const express = require('express');
-const { sustainabilityPlaceholder } = require('../controllers/sustainabilityController');
-const authenticateJWT = require('../middleware/authenticateJWT');
+import express from 'express';
+import { sustainabilityPlaceholder } from '../controllers/sustainabilityController.js';
+import authenticateJWT from '../middleware/authenticateJWT.js';
 
 const router = express.Router();
 
 router.get('/', authenticateJWT, sustainabilityPlaceholder);
 
-module.exports = router;
+export default router;

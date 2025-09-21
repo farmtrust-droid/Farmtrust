@@ -1,4 +1,4 @@
-const { mongoose } = require('../config/mongodb');
+import mongoose from 'mongoose';
 
 const userSchema = new mongoose.Schema({
   supabaseUserId: String,
@@ -11,8 +11,8 @@ const userSchema = new mongoose.Schema({
   credibilityScore: { type: Number, default: 0.0 },
   certifications: { type: Object, default: {} },
   metadata: { type: Object, default: {} },
-  password: String, // Optional, syncs with Supabase
+  password: String,
   createdAt: { type: Date, default: Date.now }
 });
 
-module.exports = mongoose.model('User', userSchema);
+export default mongoose.model('User', userSchema);

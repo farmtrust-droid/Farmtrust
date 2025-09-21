@@ -1,9 +1,9 @@
-const express = require('express');
-const { processPayment } = require('../controllers/paymentController');
-const authenticateJWT = require('../middleware/authenticateJWT');
+import express from 'express';
+import { processPayment } from '../controllers/paymentController.js';
+import authenticateJWT from '../middleware/authenticateJWT.js';
 
 const router = express.Router();
 
 router.post('/process', authenticateJWT, processPayment);
 
-module.exports = router;
+export default router;

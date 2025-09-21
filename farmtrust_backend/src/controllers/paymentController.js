@@ -1,9 +1,9 @@
-const { supabase } = require('../config/supabase');
-const Transaction = require('../models/transaction');
-const axios = require('axios');
-const { transferHBAR } = require('../utils/hedera');
+import supabase from '../config/supabase.js';
+import Transaction from '../models/transaction.js';
+import axios from 'axios';
+import { transferHBAR } from '../utils/hedera.js';
 
-const processPayment = async (req, res) => {
+export const processPayment = async (req, res) => {
   const { userId, role } = req.user;
   if (role !== 'buyer') return res.status(403).json({ error: 'Unauthorized' });
 
@@ -69,5 +69,3 @@ const processPayment = async (req, res) => {
     res.status(500).json({ error: 'Payment processing failed' });
   }
 };
-
-module.exports = { processPayment };

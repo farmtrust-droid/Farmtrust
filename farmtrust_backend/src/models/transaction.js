@@ -1,4 +1,4 @@
-const { mongoose } = require('../config/mongodb');
+import mongoose from 'mongoose';
 
 const transactionSchema = new mongoose.Schema({
   supabaseTransactionId: String,
@@ -6,12 +6,12 @@ const transactionSchema = new mongoose.Schema({
   buyerId: String,
   sellerId: String,
   amount: Number,
-  currency: { type: String, enum: ['HBAR', 'KES', 'USD'] },
-  status: { type: String, enum: ['pending', 'completed', 'failed'] },
-  paymentMethod: { type: String, enum: ['hedera', 'paystack'] },
+  currency: String,
+  status: String,
+  paymentMethod: String,
   transactionRef: String,
   metadata: { type: Object, default: {} },
   createdAt: { type: Date, default: Date.now }
 });
 
-module.exports = mongoose.model('Transaction', transactionSchema);
+export default mongoose.model('Transaction', transactionSchema);

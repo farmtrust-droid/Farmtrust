@@ -1,5 +1,4 @@
-const logisticsPlaceholder = (req, res) => {
+// controllers/logisticsController.js
+export const logisticsPlaceholder = (req, res) => {
   res.json({ message: 'Logistics functionality not yet implemented' });
 };
-
-module.exports = { logisticsPlaceholder };

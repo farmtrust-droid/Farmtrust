@@ -1,9 +1,10 @@
-const express = require('express');
-const { verificationPlaceholder } = require('../controllers/verificationController');
-const authenticateJWT = require('../middleware/authenticateJWT');
+// routes/verification.js
+import express from 'express';
+import { verificationPlaceholder } from '../controllers/verificationController.js';
+import authenticateJWT from '../middleware/authenticateJWT.js';
 
 const router = express.Router();
 
 router.get('/', authenticateJWT, verificationPlaceholder);
 
-module.exports = router;
+export default router; // <-- ESM default export

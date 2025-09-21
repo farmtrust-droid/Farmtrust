@@ -1,9 +1,10 @@
-const express = require('express');
-const { communityPlaceholder } = require('../controllers/communityController');
-const authenticateJWT = require('../middleware/authenticateJWT');
+// routes/community.js
+import express from 'express';
+import { communityPlaceholder } from '../controllers/communityController.js';
+import authenticateJWT from '../middleware/authenticateJWT.js';
 
 const router = express.Router();
 
 router.get('/', authenticateJWT, communityPlaceholder);
 
-module.exports = router;
+export default router;

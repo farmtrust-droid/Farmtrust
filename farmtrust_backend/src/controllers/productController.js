@@ -1,7 +1,7 @@
-const { supabase } = require('../config/supabase');
-const Product = require('../models/product');
+import supabase from '../config/supabase.js';
+import Product from '../models/product.js';
 
-const listProduct = async (req, res) => {
+export const listProduct = async (req, res) => {
   const { userId, role } = req.user;
   if (!['farmer', 'seller'].includes(role)) return res.status(403).json({ error: 'Unauthorized' });
 
@@ -31,7 +31,7 @@ const listProduct = async (req, res) => {
   res.json({ product: data[0] });
 };
 
-const getProducts = async (req, res) => {
+export const getProducts = async (req, res) => {
   const { data, error } = await supabase.from('products').select('*');
   if (error) return res.status(500).json({ error: 'Supabase error: ' + error.message });
 
@@ -43,7 +43,7 @@ const getProducts = async (req, res) => {
   res.json(products);
 };
 
-const placeOrder = async (req, res) => {
+export const placeOrder = async (req, res) => {
   const { userId, role } = req.user;
   if (role !== 'buyer') return res.status(403).json({ error: 'Unauthorized' });
 
@@ -65,4 +65,4 @@ const placeOrder = async (req, res) => {
   res.json({ order: data[0] });
 };
 
-module.exports = { listProduct, getProducts, placeOrder };
+export default { listProduct, getProducts, placeOrder };

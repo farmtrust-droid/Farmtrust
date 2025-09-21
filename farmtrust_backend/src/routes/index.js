@@ -1,12 +1,12 @@
-const express = require('express');
-const authRoutes = require('./auth');
-const productsRoutes = require('./products');
-const paymentsRoutes = require('./payments');
-const logisticsRoutes = require('./logistics');
-const verificationRoutes = require('./verification');
-const analyticsRoutes = require('./analytics');
-const sustainabilityRoutes = require('./sustainability');
-const communityRoutes = require('./community');
+import express from 'express';
+import authRoutes from './auth.js';
+import productsRoutes from './products.js';
+import paymentsRoutes from './payments.js';
+import logisticsRoutes from './logistics.js';
+import verificationRoutes from './verification.js';
+import analyticsRoutes from './analytics.js';
+import sustainabilityRoutes from './sustainability.js';
+import communityRoutes from './community.js';
 
 const router = express.Router();
 
@@ -19,4 +19,4 @@ router.use('/analytics', analyticsRoutes);
 router.use('/sustainability', sustainabilityRoutes);
 router.use('/community', communityRoutes);
 
-module.exports = router;
+export default router;

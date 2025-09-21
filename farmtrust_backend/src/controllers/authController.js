@@ -1,9 +1,9 @@
-const jwt = require('jsonwebtoken');
-const bcrypt = require('bcrypt');
-const { supabase } = require('../config/supabase');
-const User = require('../models/user');
+import jwt from 'jsonwebtoken';
+import bcrypt from 'bcrypt';
+import supabase from '../config/supabase.js';
+import User from '../models/user.js';
 
-const register = async (req, res) => {
+export const register = async (req, res) => {
   const { name, email, phone, role, password } = req.body;
   if (!['farmer', 'buyer', 'seller', 'logistics', 'admin'].includes(role)) {
     return res.status(400).json({ error: 'Invalid role' });
@@ -28,9 +28,19 @@ const register = async (req, res) => {
     return res.status(500).json({ error: 'Error checking user existence' });
   }
 
+  const { data: authUser, error: authError } = await supabase.auth.signUp({
+    email,
+    password,
+    options: { data: { phone, name, role } }
+  });
+  if (authError) {
+    console.error('Supabase auth error:', authError);
+    return res.status(500).json({ error: 'Auth error: ' + authError.message });
+  }
+
   const { data, error } = await supabase
     .from('users')
-    .insert({ email, phone, role, name, password: hashedPassword })
+    .insert({ id: authUser.user.id, email, phone, role, name, password: hashedPassword })
     .select();
   if (error) {
     console.error('Supabase error:', error);
@@ -47,7 +57,7 @@ const register = async (req, res) => {
   res.json({ token, user: data[0] });
 };
 
-const login = async (req, res) => {
+export const login = async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) {
     return res.status(400).json({ error: 'Email and password are required' });
@@ -77,7 +87,7 @@ const login = async (req, res) => {
   res.json({ token, user: { id: data.id, email: data.email, phone: data.phone, role: data.role, name: data.name } });
 };
 
-const sendOTC = async (req, res) => {
+export const sendOTC = async (req, res) => {
   const { contact, type, role } = req.body;
   if (!['farmer', 'buyer', 'seller', 'logistics', 'admin'].includes(role)) {
     return res.status(400).json({ error: 'Invalid role' });
@@ -96,9 +106,9 @@ const sendOTC = async (req, res) => {
         subject: 'FarmTrust Verification Code',
         text: `Your verification code is ${otc}. It expires in 5 minutes.`
       };
-      await require('../utils/email').sendEmail(msg);
+      await (await import('../utils/email.js')).sendEmail(msg);
     } else if (type === 'phone') {
-      await require('../utils/sms').sendSMS({
+      await (await import('../utils/sms.js')).sendSMS({
         body: `Your FarmTrust verification code is ${otc}. It expires in 5 minutes.`,
         from: process.env.TWILIO_PHONE_NUMBER,
         to: contact
@@ -113,7 +123,7 @@ const sendOTC = async (req, res) => {
   }
 };
 
-const verifyOTC = async (req, res) => {
+export const verifyOTC = async (req, res) => {
   const { contact, otc, type, name } = req.body;
   const stored = req.app.locals.otcs?.[contact];
   if (!stored || stored.otc !== otc || Date.now() > stored.expires) {
@@ -141,7 +151,7 @@ const verifyOTC = async (req, res) => {
   res.json({ token, user: data[0] });
 };
 
-const getNonce = async (req, res) => {
+export const getNonce = async (req, res) => {
   const { address } = req.params;
   const nonce = Math.random().toString(36).substring(2);
   req.app.locals.nonces = req.app.locals.nonces || {};
@@ -149,7 +159,7 @@ const getNonce = async (req, res) => {
   res.json({ nonce });
 };
 
-const verifyWallet = async (req, res) => {
+export const verifyWallet = async (req, res) => {
   const { address, signature, message, role, name } = req.body;
   if (!['farmer', 'buyer', 'seller', 'logistics', 'admin'].includes(role)) {
     return res.status(400).json({ error: 'Invalid role' });
@@ -181,5 +191,3 @@ const verifyWallet = async (req, res) => {
   delete req.app.locals.nonces[address];
   res.json({ token, user: data[0] });
 };
-
-module.exports = { register, login, sendOTC, verifyOTC, getNonce, verifyWallet };

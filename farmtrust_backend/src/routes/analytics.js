@@ -1,9 +1,9 @@
-const express = require('express');
-const { analyticsPlaceholder } = require('../controllers/analyticsController');
-const authenticateJWT = require('../middleware/authenticateJWT');
+import express from 'express';
+import { analyticsPlaceholder } from '../controllers/analyticsController.js';
+import authenticateJWT from '../middleware/authenticateJWT.js';
 
 const router = express.Router();
 
 router.get('/', authenticateJWT, analyticsPlaceholder);
 
-module.exports = router;
+export default router;

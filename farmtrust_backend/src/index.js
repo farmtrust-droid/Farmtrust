@@ -1,9 +1,9 @@
 import express from "express";
 import dotenv from "dotenv";
 import connectDB from "./config/mongodb.js";
-import { supabase } from "./config/supabase.js"; // Named import to match your config
+import supabase from "./config/supabase.js";
 import mongoose from "mongoose";
-import routes from "./routes/index.js"; // Import routes
+import routes from "./routes/index.js"; 
 
 dotenv.config();
 
