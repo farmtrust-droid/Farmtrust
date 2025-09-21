@@ -1,8 +1,9 @@
 import express from "express";
 import dotenv from "dotenv";
 import connectDB from "./config/mongodb.js";
-import supabase from "./config/supabase.js";
+import { supabase } from "./config/supabase.js"; // Named import to match your config
 import mongoose from "mongoose";
+import routes from "./routes/index.js"; // Import routes
 
 dotenv.config();
 
@@ -36,6 +37,9 @@ app.get("/test-supabase", async (req, res) => {
     res.status(500).json({ error: "❌ Supabase connection failed", details: err.message });
   }
 });
+
+// 5️⃣ Mount API routes
+app.use("/api", routes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));

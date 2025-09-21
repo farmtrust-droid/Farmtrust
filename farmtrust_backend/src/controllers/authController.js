@@ -43,7 +43,7 @@ const register = async (req, res) => {
     { upsert: true }
   );
 
-  const token = jwt.sign({ contact: email, type: 'email', role }, process.env.JWT_SECRET, { expiresIn: '24h' });
+  const token = jwt.sign({ userId: data[0].id, contact: email, type: 'email', role }, process.env.JWT_SECRET, { expiresIn: '24h' });
   res.json({ token, user: data[0] });
 };
 
@@ -55,7 +55,7 @@ const login = async (req, res) => {
 
   const { data, error } = await supabase
     .from('users')
-    .select('*')
+    .select('id, email, phone, role, name, password')
     .eq('email', email)
     .single();
   if (error || !data) {
@@ -73,7 +73,7 @@ const login = async (req, res) => {
     { upsert: true }
   );
 
-  const token = jwt.sign({ contact: email, type: 'email', role: data.role }, process.env.JWT_SECRET, { expiresIn: '24h' });
+  const token = jwt.sign({ userId: data.id, contact: email, type: 'email', role: data.role }, process.env.JWT_SECRET, { expiresIn: '24h' });
   res.json({ token, user: { id: data.id, email: data.email, phone: data.phone, role: data.role, name: data.name } });
 };
 
@@ -136,7 +136,7 @@ const verifyOTC = async (req, res) => {
     { upsert: true }
   );
 
-  const token = jwt.sign({ contact, type, role: stored.role }, process.env.JWT_SECRET, { expiresIn: '24h' });
+  const token = jwt.sign({ userId: data[0].id, contact, type, role: stored.role }, process.env.JWT_SECRET, { expiresIn: '24h' });
   delete req.app.locals.otcs[contact];
   res.json({ token, user: data[0] });
 };
@@ -177,7 +177,7 @@ const verifyWallet = async (req, res) => {
     { upsert: true }
   );
 
-  const token = jwt.sign({ address, network: 'hedera', role }, process.env.JWT_SECRET, { expiresIn: '24h' });
+  const token = jwt.sign({ userId: data[0].id, address, network: 'hedera', role }, process.env.JWT_SECRET, { expiresIn: '24h' });
   delete req.app.locals.nonces[address];
   res.json({ token, user: data[0] });
 };
