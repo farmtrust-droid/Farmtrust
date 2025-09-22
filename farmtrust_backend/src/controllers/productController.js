@@ -5,22 +5,24 @@ export const listProduct = async (req, res) => {
   const { userId, role } = req.user;
   if (!['farmer', 'seller'].includes(role)) return res.status(403).json({ error: 'Unauthorized' });
 
-  const { name, quantity, price, description, images, sustainability, metadata } = req.body;
+  const { product_name, description, harvest_date, origin, quantity, price } = req.body;
 
   const { data, error } = await supabase
     .from('products')
-    .insert({ user_id: userId, name, quantity, price })
+    .insert({ farmer_id: userId, product_name, description, harvest_date, origin, quantity, price })
     .select();
   if (error) return res.status(500).json({ error: 'Supabase error: ' + error.message });
 
   await Product.create({
-    supabaseProductId: data[0].id,
-    userId,
-    name,
+    supabaseProductId: data[0].product_id,
+    farmerId: userId,
+    productName: product_name,
     description,
-    images,
-    sustainability,
-    metadata
+    harvestDate: harvest_date,
+    origin,
+    quantity,
+    price,
+    metadata: {}
   });
 
   await supabase.channel('public:products').send({
@@ -36,7 +38,7 @@ export const getProducts = async (req, res) => {
   if (error) return res.status(500).json({ error: 'Supabase error: ' + error.message });
 
   const products = await Promise.all(data.map(async (p) => {
-    const mongoData = await Product.findOne({ supabaseProductId: p.id });
+    const mongoData = await Product.findOne({ supabaseProductId: p.product_id });
     return { ...p, ...mongoData?.toObject() };
   }));
 
@@ -48,21 +50,28 @@ export const placeOrder = async (req, res) => {
   if (role !== 'buyer') return res.status(403).json({ error: 'Unauthorized' });
 
   const { product_id, amount } = req.body;
-  const product = await supabase.from('products').select('user_id').match({ id: product_id }).single();
+  const product = await supabase.from('products').select('farmer_id, price').eq('product_id', product_id).single();
   if (!product.data) return res.status(404).json({ error: 'Product not found' });
 
   const { data, error } = await supabase
-    .from('orders')
-    .insert({ product_id, buyer_id: userId, seller_id: product.data.user_id, amount, status: 'pending' })
+    .from('transactions')
+    .insert({
+      product_id,
+      consumer_id: userId,
+      farmer_id: product.data.farmer_id,
+      amount,
+      timestamp: new Date(),
+      payment_status: 'pending'
+    })
     .select();
   if (error) return res.status(500).json({ error: 'Supabase error: ' + error.message });
 
-  await supabase.channel('public:orders').send({
-    event: 'new_order',
-    payload: { order: data[0] }
+  await supabase.channel('public:transactions').send({
+    event: 'new_transaction',
+    payload: { transaction: data[0] }
   });
 
-  res.json({ order: data[0] });
+  res.json({ transaction: data[0] });
 };
 
 export default { listProduct, getProducts, placeOrder };

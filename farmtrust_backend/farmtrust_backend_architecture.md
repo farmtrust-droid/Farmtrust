@@ -12,7 +12,7 @@ This document outlines the architecture, structure, workflow, and database desig
 FarmTrust’s backend is a **monolithic architecture** implemented in a single Node.js/Express application, simplifying deployment and maintenance while supporting scalability through containerization and load balancing. Supabase handles structured data, real-time features, and file storage, while MongoDB manages unstructured data. Hedera supports blockchain operations, and external services (Twilio, SendGrid, Paystack) enhance authentication and payments.
 
 ### 2.1 High-Level Architecture
-- **Frontend**: React/Next.js web and mobile apps for farmers, buyers, sellers, logistics providers, and admins.
+
 - **Backend** (Node.js/Express Monolith):
   - Handles all functionality: user management, marketplace, payments, logistics, verification, analytics, sustainability, and community.
   - Organized into modular routes and controllers within a single application.

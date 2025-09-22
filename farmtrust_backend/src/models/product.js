@@ -2,11 +2,13 @@ import mongoose from 'mongoose';
 
 const productSchema = new mongoose.Schema({
   supabaseProductId: String,
-  userId: String,
-  name: String,
+  farmerId: String,
+  productName: String,
   description: String,
-  images: [String],
-  sustainability: { carbonFootprint: Number, waterUsage: Number },
+  harvestDate: Date,
+  origin: String,
+  quantity: Number,
+  price: Number,
   metadata: { type: Object, default: {} },
   createdAt: { type: Date, default: Date.now }
 });

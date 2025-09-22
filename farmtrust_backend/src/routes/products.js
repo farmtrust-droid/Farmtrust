@@ -1,3 +1,6 @@
+
+
+
 import express from 'express';
 import { listProduct, getProducts, placeOrder } from '../controllers/productController.js';
 import authenticateJWT from '../middleware/authenticateJWT.js';

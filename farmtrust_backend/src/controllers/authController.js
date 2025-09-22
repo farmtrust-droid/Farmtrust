@@ -4,12 +4,15 @@ import supabase from '../config/supabase.js';
 import User from '../models/user.js';
 
 export const register = async (req, res) => {
-  const { name, email, phone, role, password } = req.body;
+  const { name, email, phone, role, password, location, certifications } = req.body;
   if (!['farmer', 'buyer', 'seller', 'logistics', 'admin'].includes(role)) {
     return res.status(400).json({ error: 'Invalid role' });
   }
   if (!email || !password || !name) {
     return res.status(400).json({ error: 'Name, email, and password are required' });
+  }
+  if (role === 'farmer' && (!location || !certifications)) {
+    return res.status(400).json({ error: 'Location and certifications are required for farmers' });
   }
 
   const saltRounds = 10;
@@ -31,7 +34,7 @@ export const register = async (req, res) => {
   const { data: authUser, error: authError } = await supabase.auth.signUp({
     email,
     password,
-    options: { data: { phone, name, role } }
+    options: { data: { phone, name, role, location, certifications } }
   });
   if (authError) {
     console.error('Supabase auth error:', authError);
@@ -40,7 +43,7 @@ export const register = async (req, res) => {
 
   const { data, error } = await supabase
     .from('users')
-    .insert({ id: authUser.user.id, email, phone, role, name, password: hashedPassword })
+    .insert({ id: authUser.user.id, email, phone, role, name, location, certifications, password: hashedPassword })
     .select();
   if (error) {
     console.error('Supabase error:', error);
@@ -49,7 +52,7 @@ export const register = async (req, res) => {
 
   await User.findOneAndUpdate(
     { email },
-    { $set: { supabaseUserId: data[0].id, email, phone, role, name, password: hashedPassword, metadata: {} } },
+    { $set: { supabaseUserId: data[0].id, email, phone, role, name, location, certifications, password: hashedPassword, metadata: {} } },
     { upsert: true }
   );
 
@@ -65,7 +68,7 @@ export const login = async (req, res) => {
 
   const { data, error } = await supabase
     .from('users')
-    .select('id, email, phone, role, name, password')
+    .select('id, email, phone, role, name, location, certifications, password')
     .eq('email', email)
     .single();
   if (error || !data) {
@@ -79,24 +82,27 @@ export const login = async (req, res) => {
 
   await User.findOneAndUpdate(
     { email },
-    { $set: { supabaseUserId: data.id, email, phone: data.phone, role: data.role, name: data.name, metadata: {} } },
+    { $set: { supabaseUserId: data.id, email, phone: data.phone, role: data.role, name: data.name, location: data.location, certifications: data.certifications, metadata: {} } },
     { upsert: true }
   );
 
   const token = jwt.sign({ userId: data.id, contact: email, type: 'email', role: data.role }, process.env.JWT_SECRET, { expiresIn: '24h' });
-  res.json({ token, user: { id: data.id, email: data.email, phone: data.phone, role: data.role, name: data.name } });
+  res.json({ token, user: { id: data.id, email: data.email, phone: data.phone, role: data.role, name: data.name, location: data.location, certifications: data.certifications } });
 };
 
 export const sendOTC = async (req, res) => {
-  const { contact, type, role } = req.body;
+  const { contact, type, role, name, location, certifications } = req.body;
   if (!['farmer', 'buyer', 'seller', 'logistics', 'admin'].includes(role)) {
     return res.status(400).json({ error: 'Invalid role' });
+  }
+  if (role === 'farmer' && (!location || !certifications)) {
+    return res.status(400).json({ error: 'Location and certifications are required for farmers' });
   }
   const otc = Math.floor(100000 + Math.random() * 900000).toString();
   const expires = Date.now() + 300000;
 
   req.app.locals.otcs = req.app.locals.otcs || {};
-  req.app.locals.otcs[contact] = { otc, expires, role };
+  req.app.locals.otcs[contact] = { otc, expires, role, name, location, certifications };
 
   try {
     if (type === 'email') {
@@ -124,13 +130,17 @@ export const sendOTC = async (req, res) => {
 };
 
 export const verifyOTC = async (req, res) => {
-  const { contact, otc, type, name } = req.body;
+  const { contact, otc, type } = req.body;
   const stored = req.app.locals.otcs?.[contact];
   if (!stored || stored.otc !== otc || Date.now() > stored.expires) {
     return res.status(401).json({ error: 'Invalid or expired OTC' });
   }
 
-  const userData = type === 'email' ? { email: contact, role: stored.role, name } : { phone: contact, role: stored.role, name };
+  const { name, role, location, certifications } = stored;
+  const userData = type === 'email' 
+    ? { email: contact, role, name, location, certifications } 
+    : { phone: contact, role, name, location, certifications };
+
   const { data, error } = await supabase
     .from('users')
     .upsert(userData, { onConflict: type === 'email' ? 'email' : 'phone' })
@@ -142,11 +152,11 @@ export const verifyOTC = async (req, res) => {
 
   await User.findOneAndUpdate(
     { [type]: contact },
-    { $set: { supabaseUserId: data[0].id, [type]: contact, role: stored.role, name, metadata: {} } },
+    { $set: { supabaseUserId: data[0].id, [type]: contact, role, name, location, certifications, metadata: {} } },
     { upsert: true }
   );
 
-  const token = jwt.sign({ userId: data[0].id, contact, type, role: stored.role }, process.env.JWT_SECRET, { expiresIn: '24h' });
+  const token = jwt.sign({ userId: data[0].id, contact, type, role }, process.env.JWT_SECRET, { expiresIn: '24h' });
   delete req.app.locals.otcs[contact];
   res.json({ token, user: data[0] });
 };
@@ -160,9 +170,12 @@ export const getNonce = async (req, res) => {
 };
 
 export const verifyWallet = async (req, res) => {
-  const { address, signature, message, role, name } = req.body;
+  const { address, signature, message, role, name, location, certifications } = req.body;
   if (!['farmer', 'buyer', 'seller', 'logistics', 'admin'].includes(role)) {
     return res.status(400).json({ error: 'Invalid role' });
+  }
+  if (role === 'farmer' && (!location || !certifications)) {
+    return res.status(400).json({ error: 'Location and certifications are required for farmers' });
   }
   const stored = req.app.locals.nonces?.[address];
   if (!stored || Date.now() > stored.timestamp + 300000) {
@@ -174,7 +187,7 @@ export const verifyWallet = async (req, res) => {
 
   const { data, error } = await supabase
     .from('users')
-    .upsert({ wallet_address: address, network: 'hedera', role, name, credibility_score: 0.0 }, { onConflict: 'wallet_address' })
+    .upsert({ wallet_address: address, network: 'hedera', role, name, location, certifications, credibility_score: 0.0 }, { onConflict: 'wallet_address' })
     .select();
   if (error) {
     console.error('Supabase error:', error);
@@ -183,7 +196,7 @@ export const verifyWallet = async (req, res) => {
 
   await User.findOneAndUpdate(
     { walletAddress: address },
-    { $set: { supabaseUserId: data[0].id, walletAddress: address, network: 'hedera', role, name, metadata: {} } },
+    { $set: { supabaseUserId: data[0].id, walletAddress: address, network: 'hedera', role, name, location, certifications, metadata: {} } },
     { upsert: true }
   );
 
@@ -191,3 +204,5 @@ export const verifyWallet = async (req, res) => {
   delete req.app.locals.nonces[address];
   res.json({ token, user: data[0] });
 };
+
+export default { register, login, sendOTC, verifyOTC, getNonce, verifyWallet };
