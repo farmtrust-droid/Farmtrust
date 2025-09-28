@@ -4,4 +4,4 @@ pydantic
 scikit-learn
 pandas
 numpy
-joblib
+joblibgoogle-generativeai
