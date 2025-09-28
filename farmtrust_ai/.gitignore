@@ -1,26 +1,30 @@
-# Virtual environment
+# --- Python ---
 venv/
-.env
-*.env
-
-# Python cache
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-*.pkl
 
-# Jupyter Notebook checkpoints
+# --- Environment Variables ---
+.env
+*.env
+
+# --- Jupyter Notebook ---
 .ipynb_checkpoints/
 
-# Model files (can be heavy, optional)
+# --- Models (large files) ---
 models/*.pkl
-models/*.joblib
+models/*.h5
+models/*.pth
+models/*.ckpt
+models/*.onnx
 
-# Logs
-*.log
+# --- Logs & Trainers ---
+logs/
+trainers/
+notebooks/
 
-# OS / IDE files
+# --- OS / IDE ---
 .DS_Store
 Thumbs.db
 .vscode/
