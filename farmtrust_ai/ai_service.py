@@ -1,10 +1,12 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, Form
 from pydantic import BaseModel
-import joblib, os, random
-from services.plant_health import analyze_plant
-from services.livestock_health import analyze_livestock
+import joblib, os, random, pandas as pd
 
-app = FastAPI(title="AI Agricultural Doctor")
+# --- Service imports ---
+from services.plant_health import analyze_plant_image, analyze_plant_text
+from services.livestock_health import analyze_livestock_text
+
+app = FastAPI(title="Farmtrust AI Doctor")
 
 # --- Load Models if available ---
 price_model = joblib.load("models/price_model.pkl") if os.path.exists("models/price_model.pkl") else None
@@ -72,11 +74,20 @@ def trust_score(req: TrustRequest):
                    "transactions": random.randint(10, 100)}
     return {"trust_score": score, "factors": factors}
 
-# --- New Endpoints ---
+# --- Plant Diagnosis (image or text) ---
 @app.post("/plant-diagnosis", response_model=DiagnosisResponse)
-async def plant_diagnosis(image: UploadFile = File(...)):
-    return await analyze_plant(image)
+async def plant_diagnosis(
+    image: UploadFile = File(None),
+    description: str = Form(None)
+):
+    if image:
+        return await analyze_plant_image(image)
+    elif description:
+        return analyze_plant_text(description)
+    else:
+        return {"diagnosis": "No input provided", "confidence": 0.0, "treatment": ["Please upload an image or description"]}
 
+# --- Livestock Diagnosis (CSV-based) ---
 @app.post("/livestock-diagnosis", response_model=LivestockResponse)
 def livestock_diagnosis(req: LivestockRequest):
-    return analyze_livestock(req)
+    return analyze_livestock_text(req)

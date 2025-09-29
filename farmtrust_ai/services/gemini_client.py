@@ -1,7 +1,7 @@
 import os
 import google.generativeai as genai
 
-# Configure once
+# Load key from env
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
 def ask_gemini(prompt, image_bytes=None):
