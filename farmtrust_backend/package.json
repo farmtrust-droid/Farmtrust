@@ -1,0 +1,22 @@
+{
+  "name": "farmtrust-backend",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "@hashgraph/sdk": "^2.73.1",
+    "@supabase/supabase-js": "^2.57.4",
+    "@thirdweb-dev/auth": "4.1.97",
+    "axios": "^1.7.7",
+    "bcrypt": "^5.1.1",
+    "dotenv": "^16.6.1",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.18.1",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1",
+    "twilio": "^5.10.0"
+  }
+}

@@ -1,0 +1,31 @@
+# --- Python ---
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# --- Environment Variables ---
+.env
+*.env
+
+# --- Jupyter Notebook ---
+.ipynb_checkpoints/
+
+# --- Models (large files) ---
+models/*.pkl
+models/*.h5
+models/*.pth
+models/*.ckpt
+models/*.onnx
+
+# --- Logs & Trainers ---
+logs/
+trainers/
+notebooks/
+
+# --- OS / IDE ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
