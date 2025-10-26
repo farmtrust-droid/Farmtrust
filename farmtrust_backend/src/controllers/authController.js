@@ -1,208 +1,160 @@
-import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import supabase from '../config/supabase.js';
 import User from '../models/user.js';
 
 export const register = async (req, res) => {
-  const { name, email, phone, role, password, location, certifications } = req.body;
-  if (!['farmer', 'buyer', 'seller', 'logistics', 'admin'].includes(role)) {
-    return res.status(400).json({ error: 'Invalid role' });
+  const { full_name, email, phone_number, location, user_type, password } = req.body;
+
+  if (!['farmer', 'agent', 'supplier', 'admin'].includes(user_type)) {
+    return res.status(400).json({ error: 'Invalid user type' });
   }
-  if (!email || !password || !name) {
-    return res.status(400).json({ error: 'Name, email, and password are required' });
+  if (!email || !password || !full_name) {
+    return res.status(400).json({ error: 'Full name, email, and password are required' });
   }
-  if (role === 'farmer' && (!location || !certifications)) {
-    return res.status(400).json({ error: 'Location and certifications are required for farmers' });
-  }
+
+  console.log('Register request:', req.body);
 
   const saltRounds = 10;
   const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-  const { data: existingUser, error: checkError } = await supabase
-    .from('users')
+  // Check if email exists in auth.users
+  const { data: existingUserByEmail, error: emailCheckError } = await supabase
+    .from('auth.users')
     .select('id')
-    .or(`email.eq.${email},phone.eq.${phone}`)
+    .eq('email', email)
     .single();
-  if (existingUser) {
-    return res.status(409).json({ error: 'Email or phone already registered' });
+
+  if (existingUserByEmail) {
+    return res.status(409).json({ error: 'Email already registered' });
   }
-  if (checkError && checkError.code !== 'PGRST116') {
-    console.error('Supabase check error:', checkError);
-    return res.status(500).json({ error: 'Error checking user existence' });
+  if (emailCheckError && emailCheckError.code !== 'PGRST116') {
+    console.error('Supabase email check error:', emailCheckError);
+    return res.status(500).json({ error: 'Error checking email existence' });
+  }
+
+  // Check if phone_number exists in profiles
+  const { data: existingUserByPhone, error: phoneCheckError } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('phone_number', phone_number)
+    .single();
+
+  if (existingUserByPhone) {
+    return res.status(409).json({ error: 'Phone number already registered' });
+  }
+  if (phoneCheckError && phoneCheckError.code !== 'PGRST116') {
+    console.error('Supabase phone check error:', phoneCheckError);
+    return res.status(500).json({ error: 'Error checking phone number existence' });
   }
 
   const { data: authUser, error: authError } = await supabase.auth.signUp({
     email,
     password,
-    options: { data: { phone, name, role, location, certifications } }
+    options: {
+      emailRedirectTo: `${process.env.REACT_APP_API_URL || 'http://localhost:8081'}/dashboard`,
+      data: { full_name, phone_number, location, user_type },
+    },
   });
+
   if (authError) {
     console.error('Supabase auth error:', authError);
-    return res.status(500).json({ error: 'Auth error: ' + authError.message });
+    return res.status(500).json({ error: authError.message });
   }
 
   const { data, error } = await supabase
-    .from('users')
-    .insert({ id: authUser.user.id, email, phone, role, name, location, certifications, password: hashedPassword })
-    .select();
+    .from('profiles')
+    .insert({
+      user_id: authUser.user.id,
+      full_name,
+      phone_number,
+      location,
+      user_type,
+      is_verified: false,
+    })
+    .select()
+    .single();
+
   if (error) {
     console.error('Supabase error:', error);
-    return res.status(500).json({ error: 'Supabase error: ' + error.message });
+    return res.status(500).json({ error: error.message });
   }
 
   await User.findOneAndUpdate(
-    { email },
-    { $set: { supabaseUserId: data[0].id, email, phone, role, name, location, certifications, password: hashedPassword, metadata: {} } },
-    { upsert: true }
+    { supabaseUserId: authUser.user.id },
+    {
+      $set: {
+        supabaseUserId: authUser.user.id,
+        full_name,
+        phone_number,
+        location,
+        user_type,
+        is_verified: false,
+        created_at: new Date(),
+        updated_at: new Date(),
+      },
+    },
+    { upsert: true },
   );
 
-  const token = jwt.sign({ userId: data[0].id, contact: email, type: 'email', role }, process.env.JWT_SECRET, { expiresIn: '24h' });
-  res.json({ token, user: data[0] });
+  res.status(200).json({ message: 'Account created! Please check your email to verify your account.', user: data });
 };
 
 export const login = async (req, res) => {
   const { email, password } = req.body;
+
   if (!email || !password) {
     return res.status(400).json({ error: 'Email and password are required' });
   }
 
-  const { data, error } = await supabase
-    .from('users')
-    .select('id, email, phone, role, name, location, certifications, password')
-    .eq('email', email)
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
+
+  if (error) {
+    console.error('Supabase auth error:', error);
+    return res.status(401).json({ error: error.message });
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('id, user_id, full_name, phone_number, location, user_type, is_verified, avatar_url, created_at, updated_at')
+    .eq('user_id', data.user.id)
     .single();
-  if (error || !data) {
-    return res.status(401).json({ error: 'Invalid email or password' });
-  }
 
-  const isValidPassword = await bcrypt.compare(password, data.password);
-  if (!isValidPassword) {
-    return res.status(401).json({ error: 'Invalid email or password' });
+  if (profileError || !profile) {
+    return res.status(404).json({ error: 'Profile not found' });
   }
 
   await User.findOneAndUpdate(
-    { email },
-    { $set: { supabaseUserId: data.id, email, phone: data.phone, role: data.role, name: data.name, location: data.location, certifications: data.certifications, metadata: {} } },
-    { upsert: true }
+    { supabaseUserId: data.user.id },
+    {
+      $set: {
+        supabaseUserId: data.user.id,
+        full_name: profile.full_name,
+        phone_number: profile.phone_number,
+        location: profile.location,
+        user_type: profile.user_type,
+        is_verified: profile.is_verified,
+        avatar_url: profile.avatar_url,
+        updated_at: new Date(),
+      },
+    },
+    { upsert: true },
   );
 
-  const token = jwt.sign({ userId: data.id, contact: email, type: 'email', role: data.role }, process.env.JWT_SECRET, { expiresIn: '24h' });
-  res.json({ token, user: { id: data.id, email: data.email, phone: data.phone, role: data.role, name: data.name, location: data.location, certifications: data.certifications } });
+  res.status(200).json({ user: data.user, session: data.session, profile });
 };
 
-export const sendOTC = async (req, res) => {
-  const { contact, type, role, name, location, certifications } = req.body;
-  if (!['farmer', 'buyer', 'seller', 'logistics', 'admin'].includes(role)) {
-    return res.status(400).json({ error: 'Invalid role' });
-  }
-  if (role === 'farmer' && (!location || !certifications)) {
-    return res.status(400).json({ error: 'Location and certifications are required for farmers' });
-  }
-  const otc = Math.floor(100000 + Math.random() * 900000).toString();
-  const expires = Date.now() + 300000;
-
-  req.app.locals.otcs = req.app.locals.otcs || {};
-  req.app.locals.otcs[contact] = { otc, expires, role, name, location, certifications };
-
+export const signout = async (req, res) => {
   try {
-    if (type === 'email') {
-      const msg = {
-        to: contact,
-        from: 'no-reply@farmtrust.com',
-        subject: 'FarmTrust Verification Code',
-        text: `Your verification code is ${otc}. It expires in 5 minutes.`
-      };
-      await (await import('../utils/email.js')).sendEmail(msg);
-    } else if (type === 'phone') {
-      await (await import('../utils/sms.js')).sendSMS({
-        body: `Your FarmTrust verification code is ${otc}. It expires in 5 minutes.`,
-        from: process.env.TWILIO_PHONE_NUMBER,
-        to: contact
-      });
-    } else {
-      return res.status(400).json({ error: 'Invalid contact type' });
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      return res.status(500).json({ error: error.message });
     }
-    res.json({ message: 'OTC sent' });
+    res.status(200).json({ message: 'Signed out successfully' });
   } catch (error) {
-    console.error('Error sending OTC:', error);
-    res.status(500).json({ error: 'Failed to send OTC' });
+    console.error('Error signing out:', error);
+    return res.status(500).json({ error: 'Failed to sign out' });
   }
 };
-
-export const verifyOTC = async (req, res) => {
-  const { contact, otc, type } = req.body;
-  const stored = req.app.locals.otcs?.[contact];
-  if (!stored || stored.otc !== otc || Date.now() > stored.expires) {
-    return res.status(401).json({ error: 'Invalid or expired OTC' });
-  }
-
-  const { name, role, location, certifications } = stored;
-  const userData = type === 'email' 
-    ? { email: contact, role, name, location, certifications } 
-    : { phone: contact, role, name, location, certifications };
-
-  const { data, error } = await supabase
-    .from('users')
-    .upsert(userData, { onConflict: type === 'email' ? 'email' : 'phone' })
-    .select();
-  if (error) {
-    console.error('Supabase error:', error);
-    return res.status(500).json({ error: 'Supabase error: ' + error.message });
-  }
-
-  await User.findOneAndUpdate(
-    { [type]: contact },
-    { $set: { supabaseUserId: data[0].id, [type]: contact, role, name, location, certifications, metadata: {} } },
-    { upsert: true }
-  );
-
-  const token = jwt.sign({ userId: data[0].id, contact, type, role }, process.env.JWT_SECRET, { expiresIn: '24h' });
-  delete req.app.locals.otcs[contact];
-  res.json({ token, user: data[0] });
-};
-
-export const getNonce = async (req, res) => {
-  const { address } = req.params;
-  const nonce = Math.random().toString(36).substring(2);
-  req.app.locals.nonces = req.app.locals.nonces || {};
-  req.app.locals.nonces[address] = { nonce, timestamp: Date.now() };
-  res.json({ nonce });
-};
-
-export const verifyWallet = async (req, res) => {
-  const { address, signature, message, role, name, location, certifications } = req.body;
-  if (!['farmer', 'buyer', 'seller', 'logistics', 'admin'].includes(role)) {
-    return res.status(400).json({ error: 'Invalid role' });
-  }
-  if (role === 'farmer' && (!location || !certifications)) {
-    return res.status(400).json({ error: 'Location and certifications are required for farmers' });
-  }
-  const stored = req.app.locals.nonces?.[address];
-  if (!stored || Date.now() > stored.timestamp + 300000) {
-    return res.status(401).json({ error: 'Invalid or expired nonce' });
-  }
-
-  const isValid = true; // TODO: Implement Hedera signature verification
-  if (!isValid) return res.status(401).json({ error: 'Invalid signature' });
-
-  const { data, error } = await supabase
-    .from('users')
-    .upsert({ wallet_address: address, network: 'hedera', role, name, location, certifications, credibility_score: 0.0 }, { onConflict: 'wallet_address' })
-    .select();
-  if (error) {
-    console.error('Supabase error:', error);
-    return res.status(500).json({ error: 'Supabase error: ' + error.message });
-  }
-
-  await User.findOneAndUpdate(
-    { walletAddress: address },
-    { $set: { supabaseUserId: data[0].id, walletAddress: address, network: 'hedera', role, name, location, certifications, metadata: {} } },
-    { upsert: true }
-  );
-
-  const token = jwt.sign({ userId: data[0].id, address, network: 'hedera', role }, process.env.JWT_SECRET, { expiresIn: '24h' });
-  delete req.app.locals.nonces[address];
-  res.json({ token, user: data[0] });
-};
-
-export default { register, login, sendOTC, verifyOTC, getNonce, verifyWallet };
