@@ -17,7 +17,6 @@ export const register = async (req, res) => {
   const saltRounds = 10;
   const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-  // Check if email exists in auth.users
   const { data: existingUserByEmail, error: emailCheckError } = await supabase
     .from('auth.users')
     .select('id')
@@ -32,7 +31,6 @@ export const register = async (req, res) => {
     return res.status(500).json({ error: 'Error checking email existence' });
   }
 
-  // Check if phone_number exists in profiles
   const { data: existingUserByPhone, error: phoneCheckError } = await supabase
     .from('profiles')
     .select('id')
@@ -61,7 +59,7 @@ export const register = async (req, res) => {
     return res.status(500).json({ error: authError.message });
   }
 
-  const { data, error } = await supabase
+  const { data: profile, error: profileError } = await supabase
     .from('profiles')
     .insert({
       user_id: authUser.user.id,
@@ -74,9 +72,9 @@ export const register = async (req, res) => {
     .select()
     .single();
 
-  if (error) {
-    console.error('Supabase error:', error);
-    return res.status(500).json({ error: error.message });
+  if (profileError) {
+    console.error('Supabase profile insert error:', profileError);
+    return res.status(500).json({ error: 'Failed to create profile: ' + profileError.message });
   }
 
   await User.findOneAndUpdate(
@@ -96,7 +94,7 @@ export const register = async (req, res) => {
     { upsert: true },
   );
 
-  res.status(200).json({ message: 'Account created! Please check your email to verify your account.', user: data });
+  res.status(200).json({ message: 'Account created! Please check your email to verify your account.', user: profile });
 };
 
 export const login = async (req, res) => {
@@ -105,6 +103,8 @@ export const login = async (req, res) => {
   if (!email || !password) {
     return res.status(400).json({ error: 'Email and password are required' });
   }
+
+  console.log('Login attempt:', { email });
 
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
@@ -123,7 +123,44 @@ export const login = async (req, res) => {
     .single();
 
   if (profileError || !profile) {
-    return res.status(404).json({ error: 'Profile not found' });
+    console.error('Profile fetch error:', profileError);
+    // Create a default profile if not found
+    const { data: newProfile, error: newProfileError } = await supabase
+      .from('profiles')
+      .insert({
+        user_id: data.user.id,
+        full_name: data.user.user_metadata.full_name || 'Unknown',
+        phone_number: data.user.user_metadata.phone_number || '',
+        location: data.user.user_metadata.location || '',
+        user_type: data.user.user_metadata.user_type || 'farmer',
+        is_verified: false,
+      })
+      .select()
+      .single();
+
+    if (newProfileError) {
+      console.error('Profile creation error:', newProfileError);
+      return res.status(500).json({ error: 'Failed to create profile: ' + newProfileError.message });
+    }
+
+    await User.findOneAndUpdate(
+      { supabaseUserId: data.user.id },
+      {
+        $set: {
+          supabaseUserId: data.user.id,
+          full_name: newProfile.full_name,
+          phone_number: newProfile.phone_number,
+          location: newProfile.location,
+          user_type: newProfile.user_type,
+          is_verified: newProfile.is_verified,
+          avatar_url: newProfile.avatar_url,
+          updated_at: new Date(),
+        },
+      },
+      { upsert: true },
+    );
+
+    return res.status(200).json({ user: data.user, session: data.session, profile: newProfile });
   }
 
   await User.findOneAndUpdate(

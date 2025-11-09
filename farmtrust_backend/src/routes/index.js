@@ -1,5 +1,6 @@
 import express from 'express';
 import authRoutes from './auth.js';
+import { getProfile } from '../controllers/profileController.js';
 import productsRoutes from './products.js';
 import paymentsRoutes from './payments.js';
 import logisticsRoutes from './logistics.js';
@@ -12,6 +13,7 @@ const router = express.Router();
 
 router.use('/auth', authRoutes);
 router.use('/products', productsRoutes);
+router.get('/profile/:userId', getProfile);
 router.use('/payments', paymentsRoutes);
 router.use('/logistics', logisticsRoutes);
 router.use('/verification', verificationRoutes);
